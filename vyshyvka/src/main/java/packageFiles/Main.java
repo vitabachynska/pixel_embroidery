@@ -2,6 +2,7 @@ package packageFiles;
 
 import javafx.application.Application;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
@@ -13,6 +14,7 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
+import javafx.scene.text.Font;
 import javafx.stage.Stage;
 
 public class Main extends Application {
@@ -29,8 +31,77 @@ public class Main extends Application {
     private CheckBox hSymmetryCheck;
     private CheckBox vSymmetryCheck;
 
+    private Scene scene;
+    private Stage primaryStage;
+
+    /* public void start(Stage primaryStage){
+        BorderPane root = new BorderPane();
+        initGrid();
+
+        HBox topToolbar = new HBox();
+        topToolbar.setSpacing(15);
+        topToolbar.setPadding(new Insets(10));
+        topToolbar.setStyle("-fx-background-color: #ffffff; -fx-border-color: #cccccc; -fx-border-width: 0 0 1 0;");
+
+        canvas = new Canvas(COLS * CELL_SIZE, ROWS * CELL_SIZE);
+        canvas.setOnMouseClicked(e -> handleMouseAction(e.getX(), e.getY()));
+
+        HBox canvasContainer = new HBox(canvas);
+        canvasContainer.setPadding(new Insets(15));
+        root.setCenter(canvasContainer);
+
+
+
+        Scene scene = new Scene(root, 1000, 800);
+        primaryStage.setTitle("Піксельна вишивка. Бачинська Віталіна");
+        primaryStage.setScene(scene);
+        primaryStage.setResizable(false);
+        primaryStage.show();
+        Button newFieldButton = new Button("Нове поле");
+        newFieldButton.setOnAction(e -> {
+            drawing();
+        });
+        Button clearButton = new Button("Завантажити поле");
+        clearButton.setOnAction(e -> {
+        });
+
+    }*/
     @Override
     public void start(Stage primaryStage) {
+        VBox menuRoot = new VBox();
+        menuRoot.setSpacing(20);
+        menuRoot.setPadding(new Insets(30));
+        menuRoot.setAlignment(Pos.CENTER);
+        menuRoot.setStyle("-fx-background-color: #f5f5f5;");
+
+        Label titleLabel = new Label("Редактор піксельної вишивки");
+        titleLabel.setFont(new Font("Arial", 28));
+        titleLabel.setStyle("-fx-font-weight: bold;");
+
+        Label authorLabel = new Label("Автор: Бачинська Віталіна");
+        authorLabel.setFont(new Font("Arial", 16));
+        authorLabel.setStyle("-fx-text-fill: #555555;");
+
+        Button newFieldButton = new Button("Нове поле");
+        newFieldButton.setPrefSize(200, 40);
+        newFieldButton.setOnAction(e -> {
+            drawing();
+        });
+
+        Button loadFieldButton = new Button("Завантажити поле");
+        loadFieldButton.setPrefSize(200, 40);
+        loadFieldButton.setOnAction(e -> {
+        });
+        menuRoot.getChildren().addAll(titleLabel, authorLabel, newFieldButton, loadFieldButton);
+
+        scene = new Scene(menuRoot, 1000, 800);
+
+        primaryStage.setTitle("Піксельна вишивка | Автор: Бачинська Віталіна");
+        primaryStage.setScene(scene);
+        primaryStage.setResizable(false);
+        primaryStage.show();
+    }
+    public void drawing() {
         BorderPane root = new BorderPane();
 
         initGrid();
@@ -39,7 +110,10 @@ public class Main extends Application {
         topToolbar.setSpacing(15);
         topToolbar.setPadding(new Insets(10));
         topToolbar.setStyle("-fx-background-color: #ffffff; -fx-border-color: #cccccc; -fx-border-width: 0 0 1 0;");
-
+        Button backButton = new Button("Назад в меню");
+        backButton.setOnAction(e -> {
+            start(primaryStage);
+        });
         ColorPicker colorPicker = new ColorPicker(currentColor);
         colorPicker.setOnAction(e -> {
             currentColor = colorPicker.getValue();
@@ -51,7 +125,8 @@ public class Main extends Application {
             drawGrid();
         });
 
-        topToolbar.getChildren().addAll(new Label("Оберіть колір хref:"), colorPicker, clearButton);
+
+        topToolbar.getChildren().addAll(backButton, new Label("Оберіть колір хref:"), colorPicker, clearButton);
         root.setTop(topToolbar);
 
         VBox sideMenu = new VBox();
@@ -76,11 +151,12 @@ public class Main extends Application {
 
         drawGrid();
 
-        Scene scene = new Scene(root, 1000, 800);
-        primaryStage.setTitle("Лабораторна робота");
-        primaryStage.setScene(scene);
-        primaryStage.setResizable(false);
-        primaryStage.show();
+        scene.setRoot(root);
+        //Scene scene = new Scene(root, 1000, 800);
+        //primaryStage.setTitle("Піксельна вишивка. Бачинська Віталіна");
+        //primaryStage.setScene(scene);
+        //primaryStage.setResizable(false);
+        //primaryStage.show();
     }
 
     private void initGrid() {
@@ -133,7 +209,7 @@ public class Main extends Application {
                     double startY = y * CELL_SIZE + 2;
                     double endX = (x + 1) * CELL_SIZE - 2;
                     double endY = (y + 1) * CELL_SIZE - 2;
-                    
+
                     gc.strokeLine(startX, startY, endX, endY);
                     gc.strokeLine(endX, startY, startX, endY);
                 }

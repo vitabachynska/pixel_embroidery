@@ -2,9 +2,9 @@ package packageFiles;
 
 import javafx.application.Application;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
-import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ColorPicker;
@@ -13,135 +13,112 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
+import javafx.scene.text.Font;
 import javafx.stage.Stage;
 
 public class Main extends Application {
-
-    private static final int COLS = 50;
-    private static final int ROWS = 40;
-    private static final int CELL_SIZE = 16;
-
-    private Color[][] grid = new Color[COLS][ROWS];
+    protected static final int COLS = 41;
+    protected static final int CELL_SIZE = 15;
 
     private Color currentColor = Color.RED;
-
-    private Canvas canvas;
     private CheckBox hSymmetryCheck;
     private CheckBox vSymmetryCheck;
 
-    @Override
+    private Scene scene;
+    private Stage primaryStage;
+    private BorderPane root;
+    protected static final String currentWord = "ВІТАЛІНА";
+
+    protected static HBox bottomButtonsContainer;
+    private VBox sideMenu;
+
     public void start(Stage primaryStage) {
-        BorderPane root = new BorderPane();
+        this.primaryStage = primaryStage;
+        root = new BorderPane();
 
-        initGrid();
+        Canvas canvas = new Canvas(COLS * CELL_SIZE, COLS * CELL_SIZE);
+        DrawLogic.initGrid(canvas);
 
-        HBox topToolbar = new HBox();
-        topToolbar.setSpacing(15);
-        topToolbar.setPadding(new Insets(10));
-        topToolbar.setStyle("-fx-background-color: #ffffff; -fx-border-color: #cccccc; -fx-border-width: 0 0 1 0;");
+        //draw header with name of program and author
+        VBox topHeaderContainer = new VBox(5);
+        topHeaderContainer.setAlignment(Pos.CENTER);
+        topHeaderContainer.setPadding(new Insets(10, 0, 5, 0));
+        topHeaderContainer.setStyle("-fx-background-color: #ffffff; -fx-border-color: #cccccc; -fx-border-width: 0 0 1 0;");
+
+        Label mainTitle = new Label("Редактор піксельної вишивки");
+        mainTitle.setFont(new Font("Arial", 22));
+        mainTitle.setStyle("-fx-font-weight: bold;");
+
+        Label subTitle = new Label("Автор: Бачинська Віталіна");
+        subTitle.setFont(new Font("Arial", 14));
+        subTitle.setStyle("-fx-text-fill: #666666;");
+
+        topHeaderContainer.getChildren().addAll(mainTitle, subTitle);
+        root.setTop(topHeaderContainer);
+
+        VBox canvasCenterWrapper = new VBox(canvas);
+        canvasCenterWrapper.setAlignment(Pos.CENTER);
+        root.setCenter(canvasCenterWrapper);
+
+        sideMenu = new VBox(15);
+        sideMenu.setPadding(new Insets(15));
+        sideMenu.setStyle("-fx-background-color: #ffffff; -fx-border-color: #cccccc; -fx-border-width: 0 1 0 0;");
 
         ColorPicker colorPicker = new ColorPicker(currentColor);
         colorPicker.setOnAction(e -> {
             currentColor = colorPicker.getValue();
+            DrawLogic.currentColor = currentColor;
         });
 
         Button clearButton = new Button("Очистити поле");
-        clearButton.setOnAction(e -> {
-            initGrid();
-            drawGrid();
-        });
-
-        topToolbar.getChildren().addAll(new Label("Оберіть колір хref:"), colorPicker, clearButton);
-        root.setTop(topToolbar);
-
-        VBox sideMenu = new VBox();
-        sideMenu.setSpacing(15);
-        sideMenu.setPadding(new Insets(15));
-        sideMenu.setStyle("-fx-background-color: #ffffff; -fx-border-color: #cccccc; -fx-border-width: 0 1 0 0;");
+        clearButton.setOnAction(e -> DrawLogic.clearGrid());
 
         Label symmetryLabel = new Label("Дзеркальне малювання:");
         hSymmetryCheck = new CheckBox("Горизонтальне");
         vSymmetryCheck = new CheckBox("Вертикальне");
 
-        sideMenu.getChildren().addAll(symmetryLabel, hSymmetryCheck, vSymmetryCheck);
-        root.setLeft(sideMenu);
+        sideMenu.getChildren().addAll(new Label("Оберіть колір:"), colorPicker, clearButton, symmetryLabel, hSymmetryCheck, vSymmetryCheck);
 
-        canvas = new Canvas(COLS * CELL_SIZE, ROWS * CELL_SIZE);
-        canvas.setOnMouseClicked(e -> handleMouseAction(e.getX(), e.getY()));
-        canvas.setOnMouseDragged(e -> handleMouseAction(e.getX(), e.getY()));
+        canvas.setOnMouseClicked(e -> {
+            if (root.getLeft() != null) { // Малюємо лише у режимі редагування
+                DrawLogic.handleMouseAction(e.getX(), e.getY(), hSymmetryCheck.isSelected(), vSymmetryCheck.isSelected());
+            }
+        });
+        canvas.setOnMouseDragged(e -> {
+            if (root.getLeft() != null) {
+                DrawLogic.handleMouseAction(e.getX(), e.getY(), hSymmetryCheck.isSelected(), vSymmetryCheck.isSelected());
+            }
+        });
 
-        HBox canvasContainer = new HBox(canvas);
-        canvasContainer.setPadding(new Insets(15));
-        root.setCenter(canvasContainer);
+        // 4. ПІДГОТОВКА НИЖНІХ КНОПОК
+        bottomButtonsContainer = new HBox(20);
+        bottomButtonsContainer.setAlignment(Pos.CENTER);
+        bottomButtonsContainer.setPadding(new Insets(15));
+        bottomButtonsContainer.setStyle("-fx-background-color: #f9f9f9; -fx-border-color: #cccccc; -fx-border-width: 1 0 0 0;");
 
-        drawGrid();
+        Button downloadButton = new Button("Завантажити малюнок");
+        downloadButton.setPrefSize(180, 35);
 
-        Scene scene = new Scene(root, 1000, 800);
-        primaryStage.setTitle("Лабораторна робота");
+        Button newFieldButton = new Button("Нове поле");
+        newFieldButton.setPrefSize(160, 35);
+        newFieldButton.setOnAction(e -> {
+            DrawLogic.clearGrid();
+            root.setLeft(sideMenu);
+            root.setBottom(null);
+        });
+
+        bottomButtonsContainer.getChildren().addAll(downloadButton, newFieldButton);
+
+        root.setLeft(null);
+        root.setBottom(null);
+
+        scene = new Scene(root, 1000, 800);
+        primaryStage.setTitle("Піксельна вишивка | Автор: Бачинська Віталіна");
         primaryStage.setScene(scene);
         primaryStage.setResizable(false);
         primaryStage.show();
-    }
 
-    private void initGrid() {
-        for (int x = 0; x < COLS; x++) {
-            for (int y = 0; y < ROWS; y++) {
-                grid[x][y] = Color.WHITE;
-            }
-        }
-    }
-
-    private void handleMouseAction(double mouseX, double mouseY) {
-        int x = (int) (mouseX / CELL_SIZE);
-        int y = (int) (mouseY / CELL_SIZE);
-
-        if (x >= 0 && x < COLS && y >= 0 && y < ROWS) {
-            grid[x][y] = currentColor;
-
-            if (hSymmetryCheck.isSelected()) {
-                int mirrorX = COLS - 1 - x;
-                grid[mirrorX][y] = currentColor;
-            }
-
-            if (vSymmetryCheck.isSelected()) {
-                int mirrorY = ROWS - 1 - y;
-                grid[x][mirrorY] = currentColor;
-            }
-
-            if (hSymmetryCheck.isSelected() && vSymmetryCheck.isSelected()) {
-                int mirrorX = COLS - 1 - x;
-                int mirrorY = ROWS - 1 - y;
-                grid[mirrorX][mirrorY] = currentColor;
-            }
-            drawGrid();
-        }
-    }
-    private void drawGrid() {
-        GraphicsContext gc = canvas.getGraphicsContext2D();
-        gc.clearRect(0, 0, canvas.getWidth(), canvas.getHeight());
-
-        gc.setFill(Color.WHITE);
-        gc.fillRect(0, 0, canvas.getWidth(), canvas.getHeight());
-
-        for (int x = 0; x < COLS; x++) {
-            for (int y = 0; y < ROWS; y++) {
-                if (grid[x][y] != Color.WHITE) {
-                    gc.setStroke(grid[x][y]);
-                    gc.setLineWidth(2.5);
-
-                    double startX = x * CELL_SIZE + 2;
-                    double startY = y * CELL_SIZE + 2;
-                    double endX = (x + 1) * CELL_SIZE - 2;
-                    double endY = (y + 1) * CELL_SIZE - 2;
-                    
-                    gc.strokeLine(startX, startY, endX, endY);
-                    gc.strokeLine(endX, startY, startX, endY);
-                }
-                gc.setStroke(Color.LIGHTGRAY);
-                gc.setLineWidth(0.5);
-                gc.strokeRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
-            }
-        }
+        DrawLogic.applyTrueBrodyAlgorithm(currentWord, root);
     }
 
     public static void main(String[] args) {

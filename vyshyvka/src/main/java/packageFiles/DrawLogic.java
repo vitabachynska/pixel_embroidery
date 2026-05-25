@@ -1,12 +1,20 @@
 package packageFiles;
 
 import javafx.animation.PauseTransition;
+import javafx.embed.swing.SwingFXUtils;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.image.PixelReader;
+import javafx.scene.image.WritableImage;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.paint.Color;
+import javafx.stage.FileChooser;
+import javafx.stage.Stage;
 import javafx.util.Duration;
 
+import javax.imageio.ImageIO;
+import java.io.File;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -152,4 +160,94 @@ public class DrawLogic {
             }
         }
     }
+
+
+    public static void saveToPNG(Stage stage) {
+        if (canvas == null) return;
+
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Зберегти схему вишивки");
+        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("PNG Файли (*.png)", "*.png"));
+        fileChooser.setInitialFileName("vyshyvka_scheme.png");
+
+        File file = fileChooser.showSaveDialog(stage);
+        if (file != null) {
+            try {
+                WritableImage writableImage = new WritableImage((int) canvas.getWidth(), (int) canvas.getHeight());
+                canvas.snapshot(null, writableImage);
+                ImageIO.write(SwingFXUtils.fromFXImage(writableImage, null), "png", file);
+            } catch (IOException ex) {
+                ex.printStackTrace();
+            }
+        }
+    }
+    public static void loadFromPNG(Stage stage, BorderPane root, javafx.scene.layout.VBox sideMenu) {
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Відкрити схему вишивки");
+        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Зображення (*.png)", "*.png"));
+
+        File file = fileChooser.showOpenDialog(stage);
+        if (file != null) {
+            try {
+                WritableImage image = SwingFXUtils.toFXImage(ImageIO.read(file), null);
+                PixelReader pr = image.getPixelReader();
+
+                clearGrid();
+
+                for (int x = 0; x < COLS; x++) {
+                    for (int y = 0; y < COLS; y++) {
+                        int pixelX = x * CELL_SIZE + (CELL_SIZE / 2);
+                        int pixelY = y * CELL_SIZE + (CELL_SIZE / 2);
+
+                        if (pixelX < image.getWidth() && pixelY < image.getHeight()) {
+                            Color color = pr.getColor(pixelX, pixelY);
+
+                            if (color.getOpacity() > 0.1 && (color.getRed() < 0.95 || color.getGreen() < 0.95 || color.getBlue() < 0.95)) {
+                                grid[x][y] = color;
+                            }
+                        }
+                    }
+                }
+                drawGrid();
+                root.setLeft(sideMenu);
+                root.setBottom(null);
+
+            } catch (IOException ex) {
+                ex.printStackTrace();
+            }
+        }
+    }
+
+    /*public static void loadFromPNG(Stage stage) {
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Відкрити схему вишивки");
+        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Зображення (*.png)", "*.png"));
+
+        File file = fileChooser.showOpenDialog(stage);
+        if (file != null) {
+            try {
+                WritableImage image = SwingFXUtils.toFXImage(ImageIO.read(file), null);
+                PixelReader pr = image.getPixelReader();
+
+                clearGrid();
+                for (int x = 0; x < COLS; x++) {
+                    for (int y = 0; y < COLS; y++) {
+                        int pixelX = x * CELL_SIZE + (CELL_SIZE / 2);
+                        int pixelY = y * CELL_SIZE + (CELL_SIZE / 2);
+
+                        if (pixelX < image.getWidth() && pixelY < image.getHeight()) {
+                            Color color = pr.getColor(pixelX, pixelY);
+
+                            if (color.getOpacity() > 0.1 && (color.getRed() < 0.95 || color.getGreen() < 0.95 || color.getBlue() < 0.95)) {
+                                grid[x][y] = color;
+                            }
+                        }
+                    }
+                }
+                drawGrid();
+            } catch (IOException ex) {
+                ex.printStackTrace();
+            }
+        }
+    }*/
 }

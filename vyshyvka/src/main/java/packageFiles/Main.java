@@ -69,6 +69,9 @@ public class Main extends Application {
             currentColor = colorPicker.getValue();
             DrawLogic.currentColor = currentColor;
         });
+        Button openButton = new Button("Зберегти в PNG");
+        openButton.setPrefWidth(140);
+        openButton.setOnAction(e -> DrawLogic.saveToPNG(primaryStage));
 
         Button clearButton = new Button("Очистити поле");
         clearButton.setOnAction(e -> DrawLogic.clearGrid());
@@ -77,7 +80,7 @@ public class Main extends Application {
         hSymmetryCheck = new CheckBox("Горизонтальне");
         vSymmetryCheck = new CheckBox("Вертикальне");
 
-        sideMenu.getChildren().addAll(new Label("Оберіть колір:"), colorPicker, clearButton, symmetryLabel, hSymmetryCheck, vSymmetryCheck);
+        sideMenu.getChildren().addAll(new Label("Оберіть колір:"), colorPicker, openButton, clearButton, symmetryLabel, hSymmetryCheck, vSymmetryCheck);
 
         canvas.setOnMouseClicked(e -> {
             if (root.getLeft() != null) { // Малюємо лише у режимі редагування
@@ -90,7 +93,6 @@ public class Main extends Application {
             }
         });
 
-        // 4. ПІДГОТОВКА НИЖНІХ КНОПОК
         bottomButtonsContainer = new HBox(20);
         bottomButtonsContainer.setAlignment(Pos.CENTER);
         bottomButtonsContainer.setPadding(new Insets(15));
@@ -98,6 +100,8 @@ public class Main extends Application {
 
         Button downloadButton = new Button("Завантажити малюнок");
         downloadButton.setPrefSize(180, 35);
+        downloadButton.setOnAction(e -> DrawLogic.loadFromPNG(primaryStage, root, sideMenu));
+        //downloadButton.setOnAction(e -> DrawLogic.loadFromPNG(primaryStage));
 
         Button newFieldButton = new Button("Нове поле");
         newFieldButton.setPrefSize(160, 35);

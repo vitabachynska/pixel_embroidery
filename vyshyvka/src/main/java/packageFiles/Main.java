@@ -25,17 +25,17 @@ public class Main extends Application {
     private CheckBox hSymmetryCheck;
     private CheckBox vSymmetryCheck;
 
-    private CheckBox hRepeatCheck;
-    private CheckBox vRepeatCheck;
-
     private Scene scene;
     private Stage primaryStage;
     private BorderPane root;
-    protected static final String currentWord = "МАЛШЗКА";
+    protected static final String currentWord = "ВІТАЛІНА";
 
     protected static HBox bottomButtonsContainer;
     private VBox sideMenu;
     protected static VBox topHeaderContainer;
+
+    protected static ScrollPane scrollPane;
+    protected static HBox canvasContainer;
 
     @Override
     public void start(Stage primaryStage) {
@@ -77,39 +77,34 @@ public class Main extends Application {
         });
 
         Button clearButton = new Button("Очистити поле");
-        clearButton.setOnAction(e -> {
-            hRepeatCheck.setSelected(false);
-            vRepeatCheck.setSelected(false);
-            DrawLogic.clearGrid();
-        });
+        clearButton.setOnAction(e -> DrawLogic.clearGrid());
 
-        Button openFileBtn = new Button("Відкрити файл PNG");
-        openFileBtn.setOnAction(e -> DrawLogic.loadFromPNG(primaryStage, root, sideMenu));
+        Button downloadButton = new Button("Зберегти малюнок");
+        downloadButton.setPrefWidth(140);
+        downloadButton.setOnAction(e -> DrawLogic.saveToPNG(primaryStage));
 
         Label symmetryLabel = new Label("Дзеркальне малювання:");
         symmetryLabel.setStyle("-fx-font-weight: bold;");
         hSymmetryCheck = new CheckBox("Горизонтальне");
         vSymmetryCheck = new CheckBox("Вертикальне");
 
-        Label repeatLabel = new Label("Дублювання на екрані:");
+        Label repeatLabel = new Label("Дублювання:");
         repeatLabel.setStyle("-fx-font-weight: bold;");
-        hRepeatCheck = new CheckBox("Повторити вшир (2х)");
-        vRepeatCheck = new CheckBox("Повторити ввись (2х)");
 
-        hRepeatCheck.selectedProperty().addListener((obs, oldVal, newVal) -> {
-            DrawLogic.toggleHorizontalRepeat(newVal);
-        });
+        Button btnRepeatH = new Button("Горизонтальне");
+        btnRepeatH.setPrefWidth(140);
+        btnRepeatH.setOnAction(e -> DrawLogic.addHorizontalRepeat());
 
-        vRepeatCheck.selectedProperty().addListener((obs, oldVal, newVal) -> {
-            DrawLogic.toggleVerticalRepeat(newVal);
-        });
+        Button btnRepeatV = new Button("Вертикальне");
+        btnRepeatV.setPrefWidth(140);
+        btnRepeatV.setOnAction(e -> DrawLogic.addVerticalRepeat());
 
         sideMenu.getChildren().addAll(
-                new Label("Оберіть колір:"), colorPicker, clearButton, openFileBtn,
+                new Label("Оберіть колір:"), colorPicker, clearButton, downloadButton,
                 new Label("---"),
                 symmetryLabel, hSymmetryCheck, vSymmetryCheck,
                 new Label("---"),
-                repeatLabel, hRepeatCheck, vRepeatCheck
+                repeatLabel, btnRepeatH, btnRepeatV
         );
 
         canvas.setOnMouseClicked(e -> {
@@ -123,50 +118,24 @@ public class Main extends Application {
             }
         });
 
-        HBox canvasContainer = new HBox(canvas);
+        canvasContainer = new HBox(canvas);
         canvasContainer.setAlignment(Pos.CENTER);
         canvasContainer.setPadding(new Insets(15));
-        ScrollPane scrollPane = new ScrollPane(canvasContainer);
+
+        scrollPane = new ScrollPane(canvasContainer);
         scrollPane.setStyle("-fx-background-color: transparent; -fx-background-insets: 0;");
         scrollPane.setPannable(false);
         root.setCenter(scrollPane);
+        setupScrollAndPanHandlers(canvas, canvasContainer, scrollPane, root);
 
-        canvasContainer.setOnScroll(e -> {
-            if (e.isControlDown()) {
-                e.consume();
-                double zoomFactor = (e.getDeltaY() > 0) ? 1.1 : 0.9;
-                double newScaleX = canvas.getScaleX() * zoomFactor;
-                double newScaleY = canvas.getScaleY() * zoomFactor;
-
-                if (newScaleX >= 0.5 && newScaleX <= 4.0) {
-                    canvas.setScaleX(newScaleX);
-                    canvas.setScaleY(newScaleY);
-                }
-            }
-        });
-        root.sceneProperty().addListener((observable, oldScene, newScene) -> {
-            if (newScene != null) {
-                newScene.setOnKeyPressed(event -> {
-                    if (event.getCode() == javafx.scene.input.KeyCode.CONTROL) {
-                        scrollPane.setPannable(true);
-                    }
-                });
-
-                newScene.setOnKeyReleased(event -> {
-                    if (event.getCode() == javafx.scene.input.KeyCode.CONTROL) {
-                        scrollPane.setPannable(false);
-                    }
-                });
-            }
-        });
         bottomButtonsContainer = new HBox(20);
         bottomButtonsContainer.setAlignment(Pos.CENTER);
         bottomButtonsContainer.setPadding(new Insets(15));
         bottomButtonsContainer.setStyle("-fx-background-color: #f9f9f9; -fx-border-color: #cccccc; -fx-border-width: 1 0 0 0;");
 
-        Button downloadButton = new Button("Зберегти малюнок");
-        downloadButton.setPrefSize(180, 35);
-        downloadButton.setOnAction(e -> DrawLogic.saveToPNG(primaryStage));
+        Button openButton = new Button("Відкрити файл PNG");
+        openButton.setPrefSize(180, 35);
+        openButton.setOnAction(e -> DrawLogic.loadFromPNG(primaryStage, root, sideMenu));
 
         Button newFieldButton = new Button("Нове поле");
         newFieldButton.setPrefSize(160, 35);
@@ -174,14 +143,12 @@ public class Main extends Application {
             DrawLogic.clearGrid();
             root.setLeft(sideMenu);
             root.setBottom(null);
-            hRepeatCheck.setSelected(false);
-            vRepeatCheck.setSelected(false);
             if (!topHeaderContainer.getChildren().contains(backButton)) {
                 topHeaderContainer.getChildren().add(backButton);
             }
         });
 
-        bottomButtonsContainer.getChildren().addAll(downloadButton, newFieldButton);
+        bottomButtonsContainer.getChildren().addAll(openButton, newFieldButton);
 
         root.setLeft(null);
         root.setBottom(null);
@@ -194,7 +161,36 @@ public class Main extends Application {
         DrawLogic.applyTrueBrodyAlgorithm(currentWord, root);
     }
 
-    public static void main(String[] args) {
-        launch(args);
+    public static void setupScrollAndPanHandlers(Canvas targetCanvas, HBox targetContainer, ScrollPane targetScrollPane, BorderPane rootPane) {
+        targetContainer.setOnScroll(e -> {
+            if (e.isControlDown()) {
+                e.consume();
+                double zoomFactor = (e.getDeltaY() > 0) ? 1.1 : 0.9;
+                double newScaleX = targetCanvas.getScaleX() * zoomFactor;
+                double newScaleY = targetCanvas.getScaleY() * zoomFactor;
+
+                if (newScaleX >= 0.3 && newScaleX <= 4.0) {
+                    targetCanvas.setScaleX(newScaleX);
+                    targetCanvas.setScaleY(newScaleY);
+                }
+            }
+        });
+        rootPane.sceneProperty().addListener((observable, oldScene, newScene) -> {
+            if (newScene != null) {
+                newScene.setOnKeyPressed(event -> {
+                    if (event.getCode() == javafx.scene.input.KeyCode.CONTROL) {
+                        targetScrollPane.setPannable(true);
+                    }
+                });
+
+                newScene.setOnKeyReleased(event -> {
+                    if (event.getCode() == javafx.scene.input.KeyCode.CONTROL) {
+                        targetScrollPane.setPannable(false);
+                    }
+                });
+            }
+        });
     }
+
+    public static void main(String[] args) {launch(args);}
 }

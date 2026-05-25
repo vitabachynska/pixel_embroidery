@@ -28,7 +28,7 @@ public class DrawLogic {
     protected static Canvas canvas;
     protected static BorderPane rootContainer;
 
-    private static final Color[][] grid = new Color[Main.COLS * 2][Main.COLS * 2];
+    private static Color[][] grid;
     protected static Color currentColor = Color.RED;
 
     private static final Map<Character, Integer> brodyLetterStyles = new HashMap<>();
@@ -56,44 +56,59 @@ public class DrawLogic {
     public static void clearGrid() {
         COLS = Main.COLS;
         ROWS = Main.COLS;
+        grid = new Color[COLS][ROWS];
 
         if (canvas != null) {
             canvas.setWidth(COLS * CELL_SIZE);
             canvas.setHeight(ROWS * CELL_SIZE);
+            canvas.setScaleX(1.0);
+            canvas.setScaleY(1.0);
         }
-        // Очищаємо весь масив (з запасом) в білий колір
-        for (int x = 0; x < grid.length; x++) {
-            for (int y = 0; y < grid[x].length; y++) {
+        for (int x = 0; x < COLS; x++) {
+            for (int y = 0; y < ROWS; y++) {
                 grid[x][y] = Color.WHITE;
             }
         }
         drawGrid();
     }
 
-    public static void toggleHorizontalRepeat(boolean repeat) {
+    public static void addHorizontalRepeat() {
+        int oldCols = COLS;
         int base = Main.COLS;
-        if (repeat) {
-            for (int x = 0; x < base; x++) {
-                for (int y = 0; y < ROWS; y++) {
-                    grid[x + base][y] = grid[x][y];
-                }
+        int newCols = oldCols + base;
+
+        Color[][] newGrid = new Color[newCols][ROWS];
+        for (int x = 0; x < oldCols; x++) {
+            System.arraycopy(grid[x], 0, newGrid[x], 0, ROWS);
+        }
+        for (int x = oldCols; x < newCols; x++) {
+            for (int y = 0; y < ROWS; y++) {
+                newGrid[x][y] = grid[x - base][y];
             }
-            COLS = base * 2;
-        } else {COLS = base;}
+        }
+
+        COLS = newCols;
+        grid = newGrid;
         updateCanvasDimensions();
     }
-    public static void toggleVerticalRepeat(boolean repeat) {
+
+    public static void addVerticalRepeat() {
+        int oldRows = ROWS;
         int base = Main.COLS;
-        if (repeat) {
-            for (int x = 0; x < COLS; x++) {
-                for (int y = 0; y < base; y++) {
-                    grid[x][y + base] = grid[x][y];
-                }
-            }
-            ROWS = base * 2;
-        } else {
-            ROWS = base;
+        int newRows = oldRows + base;
+
+        Color[][] newGrid = new Color[COLS][newRows];
+        for (int x = 0; x < COLS; x++) {
+            System.arraycopy(grid[x], 0, newGrid[x], 0, oldRows);
         }
+        for (int x = 0; x < COLS; x++) {
+            for (int y = oldRows; y < newRows; y++) {
+                newGrid[x][y] = grid[x][y - base];
+            }
+        }
+
+        ROWS = newRows;
+        grid = newGrid;
         updateCanvasDimensions();
     }
 
@@ -169,6 +184,7 @@ public class DrawLogic {
             grid[x][y] = color;
         }
     }
+
     protected static void drawGrid() {
         if (canvas == null) return;
         GraphicsContext gc = canvas.getGraphicsContext2D();
@@ -196,8 +212,10 @@ public class DrawLogic {
             }
         }
     }
+
     public static void handleMouseAction(javafx.scene.input.MouseEvent event, double mouseX, double mouseY, boolean hSymmetry, boolean vSymmetry) {
-        if (event.isControlDown()) {return;}
+        if (event.isControlDown()) { return; }
+
         int x = (int) (mouseX / CELL_SIZE);
         int y = (int) (mouseY / CELL_SIZE);
 
@@ -210,18 +228,9 @@ public class DrawLogic {
             applyCellWithSymmetry(baseLetterX, baseLetterY, colorToApply, hSymmetry, vSymmetry);
 
             int base = Main.COLS;
-            if (COLS > base) {
+            for (int tx = 0; tx < COLS; tx++) {
                 for (int ty = 0; ty < ROWS; ty++) {
-                    for (int tx = 0; tx < base; tx++) {
-                        grid[tx + base][ty] = grid[tx][ty];
-                    }
-                }
-            }
-            if (ROWS > base) {
-                for (int tx = 0; tx < COLS; tx++) {
-                    for (int ty = 0; ty < base; ty++) {
-                        grid[tx][ty + base] = grid[tx][ty];
-                    }
+                    grid[tx][ty] = grid[tx % base][ty % base];
                 }
             }
             drawGrid();
@@ -270,9 +279,12 @@ public class DrawLogic {
 
                 COLS = (int) (image.getWidth() / CELL_SIZE);
                 ROWS = (int) (image.getHeight() / CELL_SIZE);
+                grid = new Color[COLS][ROWS];
 
                 canvas.setWidth(COLS * CELL_SIZE);
                 canvas.setHeight(ROWS * CELL_SIZE);
+                canvas.setScaleX(1.0);
+                canvas.setScaleY(1.0);
 
                 for (int x = 0; x < COLS; x++) {
                     for (int y = 0; y < ROWS; y++) {
@@ -294,13 +306,16 @@ public class DrawLogic {
                 root.setLeft(sideMenu);
                 root.setBottom(null);
 
-                javafx.scene.layout.HBox container = new javafx.scene.layout.HBox(canvas);
-                container.setAlignment(javafx.geometry.Pos.CENTER);
-                container.setPadding(new Insets(15));
-                javafx.scene.control.ScrollPane scrollPane = new javafx.scene.control.ScrollPane(container);
-                scrollPane.setStyle("-fx-background-color: transparent; -fx-background-insets: 0;");
-                scrollPane.setPannable(true);
-                root.setCenter(scrollPane);
+                Main.canvasContainer = new javafx.scene.layout.HBox(canvas);
+                Main.canvasContainer.setAlignment(javafx.geometry.Pos.CENTER);
+                Main.canvasContainer.setPadding(new Insets(15));
+
+                Main.scrollPane = new javafx.scene.control.ScrollPane(Main.canvasContainer);
+                Main.scrollPane.setStyle("-fx-background-color: transparent; -fx-background-insets: 0;");
+                Main.scrollPane.setPannable(false);
+                root.setCenter(Main.scrollPane);
+
+                Main.setupScrollAndPanHandlers(canvas, Main.canvasContainer, Main.scrollPane, root);
 
                 Button openBackButton = new Button("← Назад на головну");
                 openBackButton.setStyle("-fx-background-color: #e0e0e0; -fx-font-weight: bold;");

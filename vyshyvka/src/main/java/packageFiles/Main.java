@@ -10,6 +10,7 @@ import javafx.scene.control.CheckBox;
 import javafx.scene.control.ColorPicker;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.control.Spinner;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
@@ -18,12 +19,18 @@ import javafx.scene.text.Font;
 import javafx.stage.Stage;
 
 public class Main extends Application {
-    protected static final int COLS = 41;
+    protected static int COLS = 5;
+    protected static int ROWS = 5;
     protected static final int CELL_SIZE = 15;
 
     private Color currentColor = Color.RED;
     private CheckBox hSymmetryCheck;
     private CheckBox vSymmetryCheck;
+
+    private Spinner<Integer> fragWidthSpinner;
+    private Spinner<Integer> fragHeightSpinner;
+    private Spinner<Integer> repeatHSpinner;
+    private Spinner<Integer> repeatVSpinner;
 
     private Scene scene;
     private Stage primaryStage;
@@ -33,16 +40,18 @@ public class Main extends Application {
     protected static HBox bottomButtonsContainer;
     private VBox sideMenu;
     protected static VBox topHeaderContainer;
-
     protected static ScrollPane scrollPane;
     protected static HBox canvasContainer;
+    protected static Canvas canvas;
+
+    protected static boolean isAnimationPlayed = false;
 
     @Override
     public void start(Stage primaryStage) {
         this.primaryStage = primaryStage;
         root = new BorderPane();
 
-        Canvas canvas = new Canvas(COLS * CELL_SIZE, COLS * CELL_SIZE);
+        canvas = new Canvas(COLS * CELL_SIZE, ROWS * CELL_SIZE);
         DrawLogic.initGrid(canvas, root);
 
         topHeaderContainer = new VBox(5);
@@ -66,8 +75,8 @@ public class Main extends Application {
         backButton.setOnAction(e -> start(primaryStage));
 
         sideMenu = new VBox();
-        sideMenu.setSpacing(12);
-        sideMenu.setPadding(new Insets(15));
+        sideMenu.setSpacing(10);
+        sideMenu.setPadding(new Insets(12));
         sideMenu.setStyle("-fx-background-color: #ffffff; -fx-border-color: #cccccc; -fx-border-width: 0 1 0 0;");
 
         ColorPicker colorPicker = new ColorPicker(currentColor);
@@ -79,7 +88,7 @@ public class Main extends Application {
         Button clearButton = new Button("Очистити поле");
         clearButton.setOnAction(e -> DrawLogic.clearGrid());
 
-        Button downloadButton = new Button("Зберегти малюнок");
+        Button downloadButton = new Button("Зберегти в PNG");
         downloadButton.setPrefWidth(140);
         downloadButton.setOnAction(e -> DrawLogic.saveToPNG(primaryStage));
 
@@ -99,41 +108,84 @@ public class Main extends Application {
         btnRepeatV.setPrefWidth(140);
         btnRepeatV.setOnAction(e -> DrawLogic.addVerticalRepeat());
 
+
+        Label patternLabel = new Label("Генератор рамки орнаменту:");
+        patternLabel.setStyle("-fx-font-weight: bold;");
+
+        fragWidthSpinner = new Spinner<>(1, 30, 5);
+        fragWidthSpinner.setPrefWidth(75);
+        HBox fwBox = new HBox(5, new Label("Ширина фрагм.:"), fragWidthSpinner);
+        fwBox.setAlignment(Pos.CENTER_LEFT);
+
+        fragHeightSpinner = new Spinner<>(1, 30, 5);
+        fragHeightSpinner.setPrefWidth(75);
+        HBox fhBox = new HBox(5, new Label("Висота фрагм.:"), fragHeightSpinner);
+        fhBox.setAlignment(Pos.CENTER_LEFT);
+
+        repeatHSpinner = new Spinner<>(1, 50, 7);
+        repeatHSpinner.setPrefWidth(75);
+        HBox rhBox = new HBox(5, new Label("Повторів по X:"), repeatHSpinner);
+        rhBox.setAlignment(Pos.CENTER_LEFT);
+
+        repeatVSpinner = new Spinner<>(1, 50, 7);
+        repeatVSpinner.setPrefWidth(75);
+        HBox rvBox = new HBox(5, new Label("Повторів по Y:"), repeatVSpinner);
+        rvBox.setAlignment(Pos.CENTER_LEFT);
+
+        Button btnGenField = new Button("1. Створити сітку");
+        btnGenField.setPrefWidth(165);
+        btnGenField.setOnAction(e -> {
+            int fw = fragWidthSpinner.getValue();
+            int fh = fragHeightSpinner.getValue();
+            DrawLogic.createInitialFragmentGrid(fw, fh);
+        });
+
+        Button btnFillBorder = new Button("2. Пустити по краю");
+        btnFillBorder.setPrefWidth(165);
+        btnFillBorder.setStyle("-fx-background-color: #e8f5e9; -fx-border-color: #a5d6a7; -fx-font-weight: bold;");
+        btnFillBorder.setOnAction(e -> {
+            int rx = repeatHSpinner.getValue();
+            int ry = repeatVSpinner.getValue();
+            DrawLogic.processBorderMultiplication(rx, ry);
+        });
+
+        Button invertButton = new Button("Інвертувати кольори");
+        invertButton.setPrefWidth(140);
+        invertButton.setOnAction(e -> DrawLogic.invertColors());
+
         sideMenu.getChildren().addAll(
                 new Label("Оберіть колір:"), colorPicker, clearButton, downloadButton,
-                new Label("---"),
                 symmetryLabel, hSymmetryCheck, vSymmetryCheck,
                 new Label("---"),
-                repeatLabel, btnRepeatH, btnRepeatV
+                repeatLabel, btnRepeatH, btnRepeatV,
+                new Label("---"),
+                patternLabel, fwBox, fhBox, rhBox, rvBox, btnGenField, btnFillBorder,
+                new Label("---"),
+                invertButton
         );
-
-        canvas.setOnMouseClicked(e -> {
-            if (root.getLeft() != null) {
-                DrawLogic.handleMouseAction(e, e.getX(), e.getY(), hSymmetryCheck.isSelected(), vSymmetryCheck.isSelected());
-            }
-        });
-        canvas.setOnMouseDragged(e -> {
-            if (root.getLeft() != null) {
-                DrawLogic.handleMouseAction(e, e.getX(), e.getY(), hSymmetryCheck.isSelected(), vSymmetryCheck.isSelected());
-            }
-        });
+        canvas.setOnMouseClicked(e -> DrawLogic.handleMouseAction(e, e.getX(), e.getY(), hSymmetryCheck.isSelected(), vSymmetryCheck.isSelected()));
+        canvas.setOnMouseDragged(e -> DrawLogic.handleMouseAction(e, e.getX(), e.getY(), hSymmetryCheck.isSelected(), vSymmetryCheck.isSelected()));
 
         canvasContainer = new HBox(canvas);
         canvasContainer.setAlignment(Pos.CENTER);
         canvasContainer.setPadding(new Insets(15));
 
         scrollPane = new ScrollPane(canvasContainer);
-        scrollPane.setStyle("-fx-background-color: transparent; -fx-background-insets: 0;");
+        scrollPane.setStyle("-fx-background-color: transparent; -fx-background-insets: 0; -fx-padding: 0;");
+        scrollPane.setFitToWidth(true);
+        scrollPane.setFitToHeight(true);
         scrollPane.setPannable(false);
         root.setCenter(scrollPane);
+
         setupScrollAndPanHandlers(canvas, canvasContainer, scrollPane, root);
 
         bottomButtonsContainer = new HBox(20);
         bottomButtonsContainer.setAlignment(Pos.CENTER);
         bottomButtonsContainer.setPadding(new Insets(15));
+        bottomButtonsContainer.setPrefHeight(65);
         bottomButtonsContainer.setStyle("-fx-background-color: #f9f9f9; -fx-border-color: #cccccc; -fx-border-width: 1 0 0 0;");
 
-        Button openButton = new Button("Відкрити файл PNG");
+        Button openButton = new Button("Завантажити малюнок");
         openButton.setPrefSize(180, 35);
         openButton.setOnAction(e -> DrawLogic.loadFromPNG(primaryStage, root, sideMenu));
 
@@ -147,18 +199,22 @@ public class Main extends Application {
                 topHeaderContainer.getChildren().add(backButton);
             }
         });
-
-        bottomButtonsContainer.getChildren().addAll(openButton, newFieldButton);
-
         root.setLeft(null);
-        root.setBottom(null);
+
+        if (isAnimationPlayed) {
+            DrawLogic.applyInstantBrodyPattern(currentWord);
+            bottomButtonsContainer.getChildren().addAll(openButton, newFieldButton);
+            root.setBottom(bottomButtonsContainer);
+        } else {
+            root.setBottom(bottomButtonsContainer);
+            DrawLogic.applyBrodyAlgorithm(currentWord, root, openButton, newFieldButton);
+        }
 
         scene = new Scene(root, 1000, 800);
         primaryStage.setTitle("Піксельна вишивка | Автор: Бачинська Віталіна");
         primaryStage.setScene(scene);
         primaryStage.setResizable(false);
         primaryStage.show();
-        DrawLogic.applyTrueBrodyAlgorithm(currentWord, root);
     }
 
     public static void setupScrollAndPanHandlers(Canvas targetCanvas, HBox targetContainer, ScrollPane targetScrollPane, BorderPane rootPane) {
@@ -175,6 +231,7 @@ public class Main extends Application {
                 }
             }
         });
+
         rootPane.sceneProperty().addListener((observable, oldScene, newScene) -> {
             if (newScene != null) {
                 newScene.setOnKeyPressed(event -> {
@@ -191,6 +248,4 @@ public class Main extends Application {
             }
         });
     }
-
-    public static void main(String[] args) {launch(args);}
 }

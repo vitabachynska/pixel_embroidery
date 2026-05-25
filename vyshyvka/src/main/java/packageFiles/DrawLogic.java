@@ -5,6 +5,7 @@ import javafx.embed.swing.SwingFXUtils;
 import javafx.geometry.Insets;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.image.PixelReader;
 import javafx.scene.image.WritableImage;
@@ -22,8 +23,10 @@ import java.util.Map;
 
 public class DrawLogic {
     protected static int COLS = Main.COLS;
-    protected static int ROWS = Main.COLS;
+    protected static int ROWS = Main.ROWS;
     private static final int CELL_SIZE = Main.CELL_SIZE;
+
+    private static final int MAX_ALLOWED_DIMENSION = 200;
 
     protected static Canvas canvas;
     protected static BorderPane rootContainer;
@@ -54,21 +57,14 @@ public class DrawLogic {
     }
 
     public static void clearGrid() {
-        COLS = Main.COLS;
-        ROWS = Main.COLS;
+        COLS = 41;
+        ROWS = 41;
+        Main.COLS = COLS;
+        Main.ROWS = ROWS;
         grid = new Color[COLS][ROWS];
 
-        if (canvas != null) {
-            canvas.setWidth(COLS * CELL_SIZE);
-            canvas.setHeight(ROWS * CELL_SIZE);
-            canvas.setScaleX(1.0);
-            canvas.setScaleY(1.0);
-        }
-        for (int x = 0; x < COLS; x++) {
-            for (int y = 0; y < ROWS; y++) {
-                grid[x][y] = Color.WHITE;
-            }
-        }
+        resetCanvasVisuals();
+        fillGridWithWhite();
         drawGrid();
     }
 
@@ -86,7 +82,6 @@ public class DrawLogic {
                 newGrid[x][y] = grid[x - base][y];
             }
         }
-
         COLS = newCols;
         grid = newGrid;
         updateCanvasDimensions();
@@ -106,12 +101,10 @@ public class DrawLogic {
                 newGrid[x][y] = grid[x][y - base];
             }
         }
-
         ROWS = newRows;
         grid = newGrid;
         updateCanvasDimensions();
     }
-
     private static void updateCanvasDimensions() {
         if (canvas != null) {
             canvas.setWidth(COLS * CELL_SIZE);
@@ -120,67 +113,203 @@ public class DrawLogic {
         }
     }
 
-    public static void applyTrueBrodyAlgorithm(String word, BorderPane root) {
-        drawStepWithTimeout(word, 0, 2, root);
+    public static void invertColors() {
+        if (grid == null) return;
+        for (int x = 0; x < COLS; x++) {
+            for (int y = 0; y < ROWS; y++) {
+                Color current = grid[x][y];
+                if (current != null && !current.equals(Color.WHITE)) {
+                    Color inverted = new Color(
+                            1.0 - current.getRed(),
+                            1.0 - current.getGreen(),
+                            1.0 - current.getBlue(),
+                            current.getOpacity()
+                    );
+                    grid[x][y] = inverted;
+                }
+            }
+        }
+        drawGrid();
     }
 
-    private static void drawStepWithTimeout(String word, int step, int radius, BorderPane root) {
-        if (step >= word.length()) {
-            root.setBottom(Main.bottomButtonsContainer);
+    private static void showLimitAlert(int calculatedSize, String dimensionType) {
+        Alert alert = new Alert(Alert.AlertType.WARNING);
+        alert.setTitle("Перевищено ліміт полотна");
+        alert.setHeaderText("Занадто великий розмір зображення!");
+        alert.setContentText(String.format(
+                "Розрахункова %s становить %d клітинок.\n" +
+                        "Максимально дозволений розмір: %d клітинок.\n" +
+                        "Будь ласка, зменшіть параметри фрагмента або кількість повторів.",
+                dimensionType, calculatedSize, MAX_ALLOWED_DIMENSION
+        ));
+        alert.showAndWait();
+    }
+
+    public static void createInitialFragmentGrid(int fragW, int fragH) {
+        if (fragW > MAX_ALLOWED_DIMENSION) {
+            showLimitAlert(fragW, "ширина фрагмента");
+            return;
+        }
+        if (fragH > MAX_ALLOWED_DIMENSION) {
+            showLimitAlert(fragH, "висота фрагмента");
+            return;
+        }
+        COLS = fragW;
+        ROWS = fragH;
+        Main.COLS = COLS;
+        Main.ROWS = ROWS;
+
+        grid = new Color[COLS][ROWS];
+        resetCanvasVisuals();
+        fillGridWithWhite();
+        drawGrid();
+    }
+
+    public static void processBorderMultiplication(int repeatX, int repeatY) {
+        int fragW = COLS;
+        int fragH = ROWS;
+        int finalCols = fragW * repeatX;
+        int finalRows = fragH * repeatY;
+
+        if (finalCols > MAX_ALLOWED_DIMENSION) {
+            showLimitAlert(finalCols, "фінальна ширина полотна (Ширина * Повтори)");
+            return;
+        }
+        if (finalRows > MAX_ALLOWED_DIMENSION) {
+            showLimitAlert(finalRows, "фінальна висота полотна (Висота * Повтори)");
             return;
         }
 
-        int center = Main.COLS / 2;
+        Color[][] fragmentBuffer = new Color[fragW][fragH];
+        for (int x = 0; x < fragW; x++) {
+            for (int y = 0; y < fragH; y++) {
+                fragmentBuffer[x][y] = grid[x][y];
+            }
+        }
+        COLS = finalCols;
+        ROWS = finalRows;
+        Main.COLS = COLS;
+        Main.ROWS = ROWS;
+
+        grid = new Color[COLS][ROWS];
+        resetCanvasVisuals();
+        fillGridWithWhite();
+
+        for (int rx = 0; rx < repeatX; rx++) {
+            for (int ry = 0; ry < repeatY; ry++) {
+                boolean isBorder = (rx == 0 || rx == repeatX - 1 || ry == 0 || ry == repeatY - 1);
+                if (!isBorder) continue;
+                int startX = rx * fragW;
+                int startY = ry * fragH;
+
+                for (int x = 0; x < fragW; x++) {
+                    for (int y = 0; y < fragH; y++) {
+                        if (startX + x < COLS && startY + y < ROWS) {
+                            grid[startX + x][startY + y] = fragmentBuffer[x][y];
+                        }
+                    }
+                }
+            }
+        }
+        drawGrid();
+    }
+
+    private static void resetCanvasVisuals() {
+        if (canvas != null) {
+            canvas.setWidth(COLS * CELL_SIZE);
+            canvas.setHeight(ROWS * CELL_SIZE);
+            canvas.setScaleX(1.0);
+            canvas.setScaleY(1.0);
+        }
+    }
+
+    private static void fillGridWithWhite() {
+        for (int x = 0; x < COLS; x++) {
+            for (int y = 0; y < ROWS; y++) {
+                grid[x][y] = Color.WHITE;
+            }
+        }
+    }
+
+    public static void applyBrodyAlgorithm(String word, BorderPane root, Button openBtn, Button newFieldBtn) {
+        drawStepWithTimeout(word, 0, 2, root, openBtn, newFieldBtn);
+    }
+
+    private static void drawStepWithTimeout(String word, int step, int radius, BorderPane root, Button openBtn, Button newFieldBtn) {
+        if (step >= word.length()) {
+            Main.isAnimationPlayed = true;
+            Main.bottomButtonsContainer.getChildren().addAll(openBtn, newFieldBtn);
+            return;
+        }
+
+        int centerCols = COLS / 2;
+        int centerRows = ROWS / 2;
         char letter = word.charAt(step);
         int style = brodyLetterStyles.getOrDefault(letter, 1);
         Color stepColor = (step % 2 == 0) ? Color.RED : Color.BLACK;
 
-        switch (style) {
-            case 1:
-                for (int i = 0; i <= radius; i++) {
-                    int j = radius - i;
-                    markCell(center + i, center + j, stepColor);
-                    markCell(center - i, center + j, stepColor);
-                    markCell(center + i, center - j, stepColor);
-                    markCell(center - i, center - j, stepColor);
-                }
-                radius += 2;
-                break;
-
-            case 2:
-                for (int i = -radius; i <= radius; i++) {
-                    markCell(center + i, center - radius, stepColor);
-                    markCell(center + i, center + radius, stepColor);
-                    markCell(center - radius, center + i, stepColor);
-                    markCell(center + radius, center + i, stepColor);
-                }
-                radius += 2;
-                break;
-
-            case 3:
-                for (int i = 1; i <= radius; i++) {
-                    markCell(center, center - i, stepColor);
-                    markCell(center, center + i, stepColor);
-                    markCell(center - i, center, stepColor);
-                    markCell(center + i, center, stepColor);
-                }
-                markCell(center - radius, center - radius, stepColor);
-                markCell(center + radius, center - radius, stepColor);
-                markCell(center - radius, center + radius, stepColor);
-                markCell(center + radius, center + radius, stepColor);
-                radius += 2;
-                break;
-        }
+        radius = markPatternCells(style, centerCols, centerRows, radius, stepColor);
         drawGrid();
 
         PauseTransition pause = new PauseTransition(Duration.millis(450));
         final int nextRadius = radius;
-        pause.setOnFinished(e -> drawStepWithTimeout(word, step + 1, nextRadius, root));
+        pause.setOnFinished(e -> drawStepWithTimeout(word, step + 1, nextRadius, root, openBtn, newFieldBtn));
         pause.play();
     }
 
+    public static void applyInstantBrodyPattern(String word) {
+        int centerCols = COLS / 2;
+        int centerRows = ROWS / 2;
+        int radius = 2;
+        for (int step = 0; step < word.length(); step++) {
+            char letter = word.charAt(step);
+            int style = brodyLetterStyles.getOrDefault(letter, 1);
+            Color stepColor = (step % 2 == 0) ? Color.RED : Color.BLACK;
+            radius = markPatternCells(style, centerCols, centerRows, radius, stepColor);
+        }
+        drawGrid();
+    }
+
+    private static int markPatternCells(int style, int cx, int cy, int radius, Color stepColor) {
+        switch (style) {
+            case 1:
+                for (int i = 0; i <= radius; i++) {
+                    int j = radius - i;
+                    markCell(cx + i, cy + j, stepColor);
+                    markCell(cx - i, cy + j, stepColor);
+                    markCell(cx + i, cy - j, stepColor);
+                    markCell(cx - i, cy - j, stepColor);
+                }
+                radius += 2;
+                break;
+            case 2:
+                for (int i = -radius; i <= radius; i++) {
+                    markCell(cx + i, cy - radius, stepColor);
+                    markCell(cx + i, cy + radius, stepColor);
+                    markCell(cx - radius, cy + i, stepColor);
+                    markCell(cx + radius, cy + i, stepColor);
+                }
+                radius += 2;
+                break;
+            case 3:
+                for (int i = 1; i <= radius; i++) {
+                    markCell(cx, cy - i, stepColor);
+                    markCell(cx, cy + i, stepColor);
+                    markCell(cx - i, cy, stepColor);
+                    markCell(cx + i, cy, stepColor);
+                }
+                markCell(cx - radius, cy - radius, stepColor);
+                markCell(cx + radius, cy - radius, stepColor);
+                markCell(cx - radius, cy + radius, stepColor);
+                markCell(cx + radius, cy + radius, stepColor);
+                radius += 2;
+                break;
+        }
+        return radius;
+    }
+
     private static void markCell(int x, int y, Color color) {
-        if (x >= 0 && x < Main.COLS && y >= 0 && y < Main.COLS) {
+        if (x >= 0 && x < COLS && y >= 0 && y < ROWS) {
             grid[x][y] = color;
         }
     }
@@ -222,27 +351,13 @@ public class DrawLogic {
         if (x >= 0 && x < COLS && y >= 0 && y < ROWS) {
             Color colorToApply = (event.getButton() == javafx.scene.input.MouseButton.SECONDARY) ? Color.WHITE : currentColor;
 
-            int baseLetterX = x % Main.COLS;
-            int baseLetterY = y % Main.COLS;
+            grid[x][y] = colorToApply;
+            if (hSymmetry) grid[COLS - 1 - x][y] = colorToApply;
+            if (vSymmetry) grid[x][ROWS - 1 - y] = colorToApply;
+            if (hSymmetry && vSymmetry) grid[COLS - 1 - x][ROWS - 1 - y] = colorToApply;
 
-            applyCellWithSymmetry(baseLetterX, baseLetterY, colorToApply, hSymmetry, vSymmetry);
-
-            int base = Main.COLS;
-            for (int tx = 0; tx < COLS; tx++) {
-                for (int ty = 0; ty < ROWS; ty++) {
-                    grid[tx][ty] = grid[tx % base][ty % base];
-                }
-            }
             drawGrid();
         }
-    }
-
-    private static void applyCellWithSymmetry(int x, int y, Color color, boolean hSym, boolean vSym) {
-        int base = Main.COLS;
-        grid[x][y] = color;
-        if (hSym) grid[base - 1 - x][y] = color;
-        if (vSym) grid[x][base - 1 - y] = color;
-        if (hSym && vSym) grid[base - 1 - x][base - 1 - y] = color;
     }
 
     public static void saveToPNG(Stage stage) {
@@ -277,8 +392,23 @@ public class DrawLogic {
                 WritableImage image = SwingFXUtils.toFXImage(ImageIO.read(file), null);
                 PixelReader pr = image.getPixelReader();
 
-                COLS = (int) (image.getWidth() / CELL_SIZE);
-                ROWS = (int) (image.getHeight() / CELL_SIZE);
+                int incomingCols = (int) (image.getWidth() / CELL_SIZE);
+                int incomingRows = (int) (image.getHeight() / CELL_SIZE);
+
+                if (incomingCols > MAX_ALLOWED_DIMENSION || incomingRows > MAX_ALLOWED_DIMENSION) {
+                    Alert alert = new Alert(Alert.AlertType.ERROR);
+                    alert.setTitle("Помилка завантаження");
+                    alert.setHeaderText("Файл занадто великий!");
+                    alert.setContentText(String.format("Максимально дозволений розмір сітки %d клітинок. Цей файл має розмір %d x %d.",
+                            MAX_ALLOWED_DIMENSION, incomingCols, incomingRows));
+                    alert.showAndWait();
+                    return;
+                }
+
+                COLS = incomingCols;
+                ROWS = incomingRows;
+                Main.COLS = COLS;
+                Main.ROWS = ROWS;
                 grid = new Color[COLS][ROWS];
 
                 canvas.setWidth(COLS * CELL_SIZE);
@@ -311,7 +441,9 @@ public class DrawLogic {
                 Main.canvasContainer.setPadding(new Insets(15));
 
                 Main.scrollPane = new javafx.scene.control.ScrollPane(Main.canvasContainer);
-                Main.scrollPane.setStyle("-fx-background-color: transparent; -fx-background-insets: 0;");
+                Main.scrollPane.setStyle("-fx-background-color: transparent; -fx-background-insets: 0; -fx-padding: 0;");
+                Main.scrollPane.setFitToWidth(true);
+                Main.scrollPane.setFitToHeight(true);
                 Main.scrollPane.setPannable(false);
                 root.setCenter(Main.scrollPane);
 
